@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // BILLS: any signed-in user can read and create the monthly record.
+    // Updates are one-way only: not_done -> done. Nothing can revert.
+    match /BILLS/{billId} {
+      allow read, create: if request.auth != null;
+      allow update: if request.auth != null
+        && resource.data.status == 'not_done'
+        && request.resource.data.status == 'done';
+      allow delete: if false;
+    }
+
+    // users: each signed-in user registers/updates only their OWN record.
+    // auth.uid comes from the Clerk<->Firebase token and equals the Clerk id.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
