@@ -1,5 +1,3 @@
-// Shared bill helpers. Doc IDs are deterministic (type_YYYY-MM) so creating the
-// monthly record is idempotent — running ensure twice never duplicates.
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { BILLS as BILL_DEFS } from "../config/data";
@@ -14,11 +12,14 @@ export function billId(type, ym) {
   return `${type}_${ym}`;
 }
 
+export function dateToYm(date) {
+  const [mm, yyyy] = date.split("/");
+  return `${yyyy}-${mm}`;
+}
+
 /**
- * Ensures this month's bill records exist for every utility.
- * Call it from anywhere an authenticated user lands (we call it in the
- * protected layout). Each new month, the first visit creates the fresh
- * not_done records automatically.
+ * Ensures this month's bill records exist for every utility (idempotent).
+ * amount starts null and is filled later on the Billing page.
  */
 export async function ensureCurrentMonthBills() {
   if (!db) return;
@@ -30,11 +31,12 @@ export async function ensureCurrentMonthBills() {
       await setDoc(ref, {
         type: def.key,
         ref: def.ref,
-        date,          // "MM/YYYY"
-        ym,            // "YYYY-MM" (for ordering)
+        date,
+        ym,
         status: "not_done",
         done_by: null,
         done_at: null,
+        amount: null,
         created_at: serverTimestamp(),
       });
     }

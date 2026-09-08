@@ -4,24 +4,32 @@ import { useAuth } from "@clerk/clerk-react";
 import { T } from "../i18n/translations";
 import { useFirebaseAuth } from "../hooks/useFirebaseAuth";
 import { useSyncUser } from "../hooks/useSyncUser";
+import { useProfile } from "../hooks/useProfile";
 import { ensureCurrentMonthBills } from "../lib/bills";
-import Navbar from "./Navbar";
+import { ProfileContext } from "../context/ProfileContext";
 
-export default function ProtectedLayout({ lang, setLang }) {
+/**
+ * Top-level guard for every authenticated route.
+ * - requires a Clerk session (else -> /login)
+ * - signs Firebase in via Clerk token
+ * - registers the user in Firestore
+ * - ensures this month's bills exist
+ * - exposes the live profile through ProfileContext
+ * Renders NO navbar (onboarding lives here too). AppLayout adds the navbar.
+ */
+export default function AuthGate({ lang, setLang }) {
   const { isLoaded, isSignedIn } = useAuth();
   const fbReady = useFirebaseAuth();
-
-  // 1) register the user in Firestore (client-side, free)
   useSyncUser(fbReady);
+  const { profile, complete, loading } = useProfile(fbReady);
 
-  // 2) make sure this month's bill records exist
   useEffect(() => {
     if (isSignedIn && fbReady) {
       ensureCurrentMonthBills().catch((e) => console.error("ensureCurrentMonthBills:", e));
     }
   }, [isSignedIn, fbReady]);
 
-  if (!isLoaded) {
+  if (!isLoaded || (isSignedIn && (!fbReady || loading))) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">
         {T[lang].loadingAuth}
@@ -31,9 +39,8 @@ export default function ProtectedLayout({ lang, setLang }) {
   if (!isSignedIn) return <Navigate to="/login" replace />;
 
   return (
-    <>
-      <Navbar lang={lang} setLang={setLang} />
+    <ProfileContext.Provider value={{ profile, complete, loading }}>
       <Outlet context={{ lang, setLang }} />
-    </>
+    </ProfileContext.Provider>
   );
 }

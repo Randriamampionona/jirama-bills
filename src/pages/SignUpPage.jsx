@@ -8,7 +8,7 @@ import BrandMark from "../components/BrandMark";
 export default function SignUpPage({ lang, setLang }) {
   const t = T[lang];
   const { isLoaded, isSignedIn } = useAuth();
-  if (isLoaded && isSignedIn) return <Navigate to="/indexing" replace />;
+  if (isLoaded && isSignedIn) return <Navigate to="/update_profile" replace />;
 
   return (
     <div className="flex min-h-screen flex-col px-5 py-6">
@@ -25,7 +25,7 @@ export default function SignUpPage({ lang, setLang }) {
           <SignUp
             routing="hash"
             signInUrl="/login"
-            forceRedirectUrl="/indexing"
+            forceRedirectUrl="/update_profile"
             appearance={{
               baseTheme: dark,
               variables: { colorPrimary: "#06b6d4" },

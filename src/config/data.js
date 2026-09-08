@@ -1,12 +1,10 @@
 import { Droplet, Zap } from "lucide-react";
 
-// Client references per utility. Wire these to Firebase later if they vary per user.
 export const BILLS = {
   water: { key: "water", ref: "25021561246" },
   electricity: { key: "electricity", ref: "25021550900" },
 };
 
-// Meaningful accent per utility: water = cyan, electricity = amber.
 export const THEME = {
   water: {
     icon: Droplet,
@@ -26,5 +24,20 @@ export const THEME = {
   },
 };
 
-// The number JIRAMA subscribers call to declare their meter index.
 export const INDEX_CALL_NUMBER = "547";
+
+// Fixed household reference options for the user profile.
+export const HOUSEHOLD_REFS = [
+  "RC Nord", "RC Sud", "1er Nord", "1er Sud", "2em Nord", "2em Sud", "3em Nord",
+];
+
+// Format a number as Ariary. decimals=0 for totals, 2 for computed shares.
+export function formatAr(n, decimals = 0) {
+  if (n == null || Number.isNaN(Number(n))) return "—";
+  return (
+    new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(Number(n)) + " Ar"
+  );
+}

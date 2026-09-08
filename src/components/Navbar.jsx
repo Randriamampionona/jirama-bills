@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useUser, useClerk } from "@clerk/clerk-react";
-import { Menu, X, LogOut, FileText, Receipt, Mail } from "lucide-react";
+import { Menu, X, LogOut, FileText, Receipt, User, Mail } from "lucide-react";
 import { T } from "../i18n/translations";
 import BrandMark from "./BrandMark";
 import LangSwitch from "./LangSwitch";
@@ -30,13 +30,15 @@ export default function Navbar({ lang, setLang }) {
       <NavLink to="/billing" className={navClass} onClick={() => setOpen(false)}>
         <Receipt size={16} /> {t.navBilling}
       </NavLink>
+      <NavLink to="/profile" className={navClass} onClick={() => setOpen(false)}>
+        <User size={16} /> {t.navProfile}
+      </NavLink>
     </>
   );
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 sm:px-6">
-        {/* brand — never wraps, never shrinks */}
         <div className="flex shrink-0 items-center gap-3">
           <BrandMark size={36} />
           <span className="whitespace-nowrap text-sm font-bold tracking-tight text-slate-100 sm:text-base">
@@ -44,16 +46,12 @@ export default function Navbar({ lang, setLang }) {
           </span>
         </div>
 
-        {/* desktop: pushed to the right, single line */}
+        {/* desktop */}
         <nav className="ml-auto hidden items-center gap-2 md:flex">
           {links}
           <div className="mx-1 h-6 w-px bg-slate-800" />
           <LangSwitch lang={lang} setLang={setLang} />
-          {/* email only when there's room, so it can't push a wrap */}
-          <span
-            className="hidden max-w-[200px] truncate text-xs text-slate-400 lg:inline"
-            title={email}
-          >
+          <span className="hidden max-w-[200px] truncate text-xs text-slate-400 lg:inline" title={email}>
             {email}
           </span>
           <button
@@ -65,7 +63,7 @@ export default function Navbar({ lang, setLang }) {
           </button>
         </nav>
 
-        {/* mobile: hamburger (unchanged) */}
+        {/* mobile */}
         <button
           onClick={() => setOpen((v) => !v)}
           aria-label={t.menu}
@@ -76,7 +74,6 @@ export default function Navbar({ lang, setLang }) {
         </button>
       </div>
 
-      {/* mobile dropdown panel (unchanged) */}
       {open && (
         <div className="border-t border-slate-800 bg-slate-950/95 px-4 py-4 md:hidden">
           <div className="mb-3 flex items-center gap-2 text-xs text-slate-400">

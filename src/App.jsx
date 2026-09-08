@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
+import UpdateProfilePage from "./pages/UpdateProfilePage";
+import ProfilePage from "./pages/ProfilePage";
 import IndexingPage from "./pages/IndexingPage";
 import BillingPage from "./pages/BillingPage";
-import ProtectedLayout from "./components/ProtectedLayout";
+import AuthGate from "./components/AuthGate";
+import AppLayout from "./components/AppLayout";
 
 export default function App() {
   const [lang, setLang] = useState(() => {
@@ -31,9 +34,17 @@ export default function App() {
           <Route path="/login" element={<LoginPage lang={lang} setLang={setLang} />} />
           <Route path="/sign-up" element={<SignUpPage lang={lang} setLang={setLang} />} />
 
-          <Route element={<ProtectedLayout lang={lang} setLang={setLang} />}>
-            <Route path="/indexing" element={<IndexingPage />} />
-            <Route path="/billing" element={<BillingPage />} />
+          {/* authenticated area */}
+          <Route element={<AuthGate lang={lang} setLang={setLang} />}>
+            {/* onboarding — no navbar, no completion gate */}
+            <Route path="/update_profile" element={<UpdateProfilePage />} />
+
+            {/* main app — navbar + profile-completion gate */}
+            <Route element={<AppLayout />}>
+              <Route path="/indexing" element={<IndexingPage />} />
+              <Route path="/billing" element={<BillingPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<Navigate to="/indexing" replace />} />
