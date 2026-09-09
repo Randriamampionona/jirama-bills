@@ -1,31 +1,41 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useOutletContext } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { T } from "../i18n/translations";
 import { useProfileContext } from "../context/ProfileContext";
+import { useUsers } from "../hooks/useUsers";
 import BrandMark from "../components/BrandMark";
 import LangSwitch from "../components/LangSwitch";
-import Loading from "../components/Loading";
 import ProfileHouseholdFields from "../components/ProfileForm";
 
 /**
- * Onboarding — no navbar. A complete profile is redirected to /indexing BEFORE
- * the form renders; while the profile is still loading we show a spinner, so
- * the household form never flashes for an already-configured user.
+ * Onboarding. Completeness comes from AuthGate (Clerk session), so a complete
+ * user is redirected before this renders. Saving writes to BOTH Clerk metadata
+ * (for instant routing) and Firestore (source of truth for billing).
  */
 export default function UpdateProfilePage() {
   const { lang, setLang } = useOutletContext();
   const t = T[lang];
   const { user } = useUser();
-  const { complete, loading } = useProfileContext();
+  const { complete, fbReady } = useProfileContext();
   const navigate = useNavigate();
+  const { users } = useUsers(fbReady);
 
   const [form, setForm] = useState({ household_ref: "", no_person: "" });
   const [saving, setSaving] = useState(false);
 
-  if (loading) return <Loading label={t.loadingAuth} />;
+  // person counts of households OTHER users already belong to (self excluded)
+  const existingCounts = useMemo(() => {
+    const o = {};
+    for (const u of users) {
+      if (u.id === user?.id || !u.household_ref) continue;
+      o[u.household_ref] = Math.max(o[u.household_ref] || 0, Number(u.no_person) || 0);
+    }
+    return o;
+  }, [users, user?.id]);
+
   if (complete) return <Navigate to="/indexing" replace />;
 
   const valid = form.household_ref && form.no_person !== "" && Number(form.no_person) > 0;
@@ -34,6 +44,13 @@ export default function UpdateProfilePage() {
     if (!valid || !user) return;
     setSaving(true);
     try {
+      await user.update({
+        unsafeMetadata: {
+          ...user.unsafeMetadata,
+          household_ref: form.household_ref,
+          no_person: Number(form.no_person),
+        },
+      });
       await setDoc(
         doc(db, "users", user.id),
         {
@@ -73,6 +90,7 @@ export default function UpdateProfilePage() {
               lang={lang}
               value={form}
               onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+              existingCounts={existingCounts}
             />
             <button
               onClick={save}

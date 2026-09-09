@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -6,25 +6,21 @@ import { Check } from "lucide-react";
 import { db } from "../config/firebase";
 import { T } from "../i18n/translations";
 import { useProfileContext } from "../context/ProfileContext";
+import { useUsers } from "../hooks/useUsers";
 import ProfileHouseholdFields from "../components/ProfileForm";
 
 /**
- * Full profile editor (under navbar). firstName/lastName update Clerk (and are
- * mirrored to Firestore); household_ref/no_person are stored in Firestore.
- * email + avatar are managed by Clerk and shown read-only.
+ * Full profile editor. Saves names to Clerk, household fields to Firestore, and
+ * mirrors completeness into Clerk metadata so routing stays instant.
  */
 export default function ProfilePage() {
   const { lang } = useOutletContext();
   const t = T[lang];
   const { user } = useUser();
-  const { profile } = useProfileContext();
+  const { profile, fbReady } = useProfileContext();
+  const { users } = useUsers(fbReady);
 
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    household_ref: "",
-    no_person: "",
-  });
+  const [form, setForm] = useState({ firstName: "", lastName: "", household_ref: "", no_person: "" });
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(0);
 
@@ -37,6 +33,15 @@ export default function ProfilePage() {
     });
   }, [user, profile]);
 
+  const existingCounts = useMemo(() => {
+    const o = {};
+    for (const u of users) {
+      if (u.id === user?.id || !u.household_ref) continue;
+      o[u.household_ref] = Math.max(o[u.household_ref] || 0, Number(u.no_person) || 0);
+    }
+    return o;
+  }, [users, user?.id]);
+
   const email = user?.primaryEmailAddress?.emailAddress || "";
   const valid = form.household_ref && form.no_person !== "" && Number(form.no_person) > 0;
 
@@ -44,7 +49,15 @@ export default function ProfilePage() {
     if (!valid || !user) return;
     setSaving(true);
     try {
-      await user.update({ firstName: form.firstName, lastName: form.lastName });
+      await user.update({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        unsafeMetadata: {
+          ...user.unsafeMetadata,
+          household_ref: form.household_ref,
+          no_person: Number(form.no_person),
+        },
+      });
       await setDoc(
         doc(db, "users", user.id),
         {
@@ -82,9 +95,7 @@ export default function ProfilePage() {
           )}
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-100">{email}</p>
-            {profile?.household_ref && (
-              <p className="text-xs text-slate-500">{profile.household_ref}</p>
-            )}
+            {profile?.household_ref && <p className="text-xs text-slate-500">{profile.household_ref}</p>}
           </div>
         </div>
 
@@ -116,7 +127,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="mt-4">
-          <ProfileHouseholdFields lang={lang} value={form} onChange={set} />
+          <ProfileHouseholdFields lang={lang} value={form} onChange={set} existingCounts={existingCounts} />
         </div>
 
         <div className="mt-6 flex items-center gap-3">
