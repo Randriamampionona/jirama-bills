@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { Droplet, Zap, Pencil, Check, X, Users, Home } from "lucide-react";
@@ -8,6 +8,29 @@ import { firebaseReady } from "../config/firebase";
 import { periodParts } from "../lib/bills";
 import { useBills } from "../hooks/useBills";
 import { useUsers } from "../hooks/useUsers";
+
+const memberName = (u) =>
+  [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id;
+
+/**
+ * Collapse users into household units keyed by household_ref.
+ * no_person is taken ONCE per household (the max across members, so a member
+ * who left it blank doesn't shrink the household), never summed per user.
+ */
+function groupByHousehold(users) {
+  const map = new Map();
+  for (const u of users) {
+    const ref = u.household_ref || "—";
+    if (!map.has(ref)) {
+      map.set(ref, { household_ref: ref, members: [], ids: [], no_person: 0 });
+    }
+    const g = map.get(ref);
+    g.members.push(u);
+    g.ids.push(u.id);
+    g.no_person = Math.max(g.no_person, Number(u.no_person) || 0);
+  }
+  return [...map.values()];
+}
 
 export default function BillingPage() {
   const { lang } = useOutletContext();
@@ -25,7 +48,7 @@ export default function BillingPage() {
   const ym = waterBill?.ym;
   const amount = waterBill?.amount ?? null;
 
-  // amount inline edit
+  // inline amount edit
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const startEdit = () => { setDraft(amount != null ? String(amount) : ""); setEditing(true); };
@@ -35,23 +58,24 @@ export default function BillingPage() {
     setEditing(false);
   }
 
-  // split state
+  // split state — exclusion is keyed by household_ref
   const [mode, setMode] = useState("person");
   const [excluded, setExcluded] = useState(() => new Set());
-  const toggleExclude = (id) =>
+  const toggleExclude = (ref) =>
     setExcluded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      next.has(ref) ? next.delete(ref) : next.add(ref);
       return next;
     });
 
-  const activeUsers = users.filter((u) => !excluded.has(u.id));
-  const totalPersons = activeUsers.reduce((s, u) => s + (Number(u.no_person) || 0), 0);
-  const totalHouseholds = activeUsers.length;
+  const households = useMemo(() => groupByHousehold(users), [users]);
+  const activeHouseholds = households.filter((h) => !excluded.has(h.household_ref));
+  const totalPersons = activeHouseholds.reduce((s, h) => s + h.no_person, 0);
+  const totalHouseholds = activeHouseholds.length;
 
-  const shareFor = (u) => {
-    if (excluded.has(u.id) || amount == null) return null;
-    if (mode === "person") return totalPersons ? (Number(u.no_person || 0) * amount) / totalPersons : 0;
+  const shareFor = (h) => {
+    if (excluded.has(h.household_ref) || amount == null) return null;
+    if (mode === "person") return totalPersons ? (h.no_person * amount) / totalPersons : 0;
     return totalHouseholds ? amount / totalHouseholds : 0;
   };
 
@@ -69,7 +93,7 @@ export default function BillingPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-5 sm:px-6 sm:py-8">
-      {/* header: heading + month + description */}
+      {/* header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-50">{t.billingTitle}</h1>
@@ -124,10 +148,7 @@ export default function BillingPage() {
         <>
           {/* amount card + inline edit */}
           <div className={"relative overflow-hidden rounded-3xl border bg-slate-900/70 p-5 shadow-2xl sm:p-6 " + theme.border}>
-            <div
-              className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl"
-              style={{ background: theme.glow }}
-            />
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl" style={{ background: theme.glow }} />
             <div className="relative flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className={"flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg " + theme.grad}>
@@ -138,7 +159,6 @@ export default function BillingPage() {
                   <p className="text-sm text-slate-400">{labelMonth(month, lang)}</p>
                 </div>
               </div>
-
               {!editing && (
                 <button
                   onClick={startEdit}
@@ -197,7 +217,7 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* denominator summary */}
+          {/* denominators (per household, not per user) */}
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
               <p className="text-xs text-slate-500">{t.activePersons}</p>
@@ -209,47 +229,58 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* households list */}
+          {/* household units */}
           <div className="mt-3 overflow-hidden rounded-2xl border border-slate-800">
             <div className="border-b border-slate-800 bg-slate-950/40 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
               {t.households}
             </div>
             <ul className="divide-y divide-slate-800">
-              {users.map((u) => {
-                const isMe = u.id === user?.id;
-                const isExcluded = excluded.has(u.id);
-                const share = shareFor(u);
-                const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id;
+              {households.map((h) => {
+                const isExcluded = excluded.has(h.household_ref);
+                const isMine = h.ids.includes(user?.id);
+                const share = shareFor(h);
                 return (
                   <li
-                    key={u.id}
+                    key={h.household_ref}
                     className={
-                      "flex items-center justify-between gap-3 px-4 py-3 " +
-                      (isMe ? "bg-cyan-500/5 ring-1 ring-inset ring-cyan-500/30" : "bg-slate-950/30")
+                      "flex items-start justify-between gap-3 px-4 py-3 " +
+                      (isMine ? "bg-cyan-500/5 ring-1 ring-inset ring-cyan-500/30" : "bg-slate-950/30")
                     }
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={"truncate text-sm font-medium " + (isExcluded ? "text-slate-500 line-through" : "text-slate-100")}>
-                          {name}
+                        <span className={"text-sm font-semibold " + (isExcluded ? "text-slate-500 line-through" : "text-slate-100")}>
+                          {h.household_ref}
                         </span>
-                        {isMe && (
-                          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
-                            {t.you}
-                          </span>
-                        )}
+                        <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+                          {h.no_person} {t.persons}
+                        </span>
                       </div>
-                      <p className="text-xs text-slate-500">
-                        {u.household_ref || "—"} · {Number(u.no_person) || 0} {t.persons}
-                      </p>
+                      {/* member names, with (You) beside the logged-in user */}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        {h.members.map((m, i) => {
+                          const isMe = m.id === user?.id;
+                          return (
+                            <span key={m.id} className="text-xs text-slate-400">
+                              {memberName(m)}
+                              {isMe && (
+                                <span className="ml-1 rounded-full bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
+                                  {t.you}
+                                </span>
+                              )}
+                              {i < h.members.length - 1 && <span className="text-slate-600">,</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3">
                       <span className={"text-sm font-bold " + (isExcluded ? "text-slate-600" : "text-emerald-300")}>
                         {isExcluded ? t.excluded : share == null ? "—" : formatAr(share, 2)}
                       </span>
                       <button
-                        onClick={() => toggleExclude(u.id)}
+                        onClick={() => toggleExclude(h.household_ref)}
                         className={
                           "rounded-lg border px-2.5 py-1 text-xs font-semibold transition " +
                           (isExcluded

@@ -7,22 +7,25 @@ import { T } from "../i18n/translations";
 import { useProfileContext } from "../context/ProfileContext";
 import BrandMark from "../components/BrandMark";
 import LangSwitch from "../components/LangSwitch";
+import Loading from "../components/Loading";
 import ProfileHouseholdFields from "../components/ProfileForm";
 
 /**
- * Onboarding — no navbar, can't be skipped. Redirects to /indexing once the
- * required household fields are saved (or if the profile is already complete).
+ * Onboarding — no navbar. A complete profile is redirected to /indexing BEFORE
+ * the form renders; while the profile is still loading we show a spinner, so
+ * the household form never flashes for an already-configured user.
  */
 export default function UpdateProfilePage() {
   const { lang, setLang } = useOutletContext();
   const t = T[lang];
   const { user } = useUser();
-  const { complete } = useProfileContext();
+  const { complete, loading } = useProfileContext();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ household_ref: "", no_person: "" });
   const [saving, setSaving] = useState(false);
 
+  if (loading) return <Loading label={t.loadingAuth} />;
   if (complete) return <Navigate to="/indexing" replace />;
 
   const valid = form.household_ref && form.no_person !== "" && Number(form.no_person) > 0;

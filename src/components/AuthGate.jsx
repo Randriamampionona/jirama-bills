@@ -7,15 +7,13 @@ import { useSyncUser } from "../hooks/useSyncUser";
 import { useProfile } from "../hooks/useProfile";
 import { ensureCurrentMonthBills } from "../lib/bills";
 import { ProfileContext } from "../context/ProfileContext";
+import Loading from "./Loading";
 
 /**
- * Top-level guard for every authenticated route.
- * - requires a Clerk session (else -> /login)
- * - signs Firebase in via Clerk token
- * - registers the user in Firestore
- * - ensures this month's bills exist
- * - exposes the live profile through ProfileContext
- * Renders NO navbar (onboarding lives here too). AppLayout adds the navbar.
+ * Top-level guard for every authenticated route. Renders NOTHING downstream
+ * until Clerk auth, Firebase, AND the Firestore profile are all resolved.
+ * Because no child route mounts on half-known state, a completed user never
+ * flashes through /update_profile on the way to /indexing.
  */
 export default function AuthGate({ lang, setLang }) {
   const { isLoaded, isSignedIn } = useAuth();
@@ -29,14 +27,9 @@ export default function AuthGate({ lang, setLang }) {
     }
   }, [isSignedIn, fbReady]);
 
-  if (!isLoaded || (isSignedIn && (!fbReady || loading))) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">
-        {T[lang].loadingAuth}
-      </div>
-    );
-  }
+  if (!isLoaded) return <Loading label={T[lang].loadingAuth} />;
   if (!isSignedIn) return <Navigate to="/login" replace />;
+  if (!fbReady || loading) return <Loading label={T[lang].loadingAuth} />;
 
   return (
     <ProfileContext.Provider value={{ profile, complete, loading }}>
