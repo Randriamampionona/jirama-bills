@@ -1,24 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { Check } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { db } from "../config/firebase";
 import { T } from "../i18n/translations";
 import { useProfileContext } from "../context/ProfileContext";
-import { useUsers } from "../hooks/useUsers";
-import ProfileHouseholdFields from "../components/ProfileForm";
 
 /**
- * Full profile editor. Saves names to Clerk, household fields to Firestore, and
- * mirrors completeness into Clerk metadata so routing stays instant.
+ * Full profile editor.
+ * - firstName / lastName -> Clerk (mirrored to Firestore)
+ * - email + avatar       -> managed by Clerk, read-only
+ * - household_ref        -> READ-ONLY (assigned at sign-up; not editable here)
+ * - no_person            -> editable (update the household head count)
+ * Completeness is mirrored into Clerk metadata so routing stays instant.
  */
 export default function ProfilePage() {
   const { lang } = useOutletContext();
   const t = T[lang];
   const { user } = useUser();
-  const { profile, fbReady } = useProfileContext();
-  const { users } = useUsers(fbReady);
+  const { profile } = useProfileContext();
 
   const [form, setForm] = useState({ firstName: "", lastName: "", household_ref: "", no_person: "" });
   const [saving, setSaving] = useState(false);
@@ -33,15 +34,6 @@ export default function ProfilePage() {
     });
   }, [user, profile]);
 
-  const existingCounts = useMemo(() => {
-    const o = {};
-    for (const u of users) {
-      if (u.id === user?.id || !u.household_ref) continue;
-      o[u.household_ref] = Math.max(o[u.household_ref] || 0, Number(u.no_person) || 0);
-    }
-    return o;
-  }, [users, user?.id]);
-
   const email = user?.primaryEmailAddress?.emailAddress || "";
   const valid = form.household_ref && form.no_person !== "" && Number(form.no_person) > 0;
 
@@ -54,7 +46,7 @@ export default function ProfilePage() {
         lastName: form.lastName,
         unsafeMetadata: {
           ...user.unsafeMetadata,
-          household_ref: form.household_ref,
+          household_ref: form.household_ref, // preserved unchanged (read-only)
           no_person: Number(form.no_person),
         },
       });
@@ -63,7 +55,7 @@ export default function ProfilePage() {
         {
           firstName: form.firstName || null,
           lastName: form.lastName || null,
-          household_ref: form.household_ref,
+          household_ref: form.household_ref, // preserved unchanged (read-only)
           no_person: Number(form.no_person),
           updatedAt: serverTimestamp(),
         },
@@ -126,8 +118,32 @@ export default function ProfilePage() {
           </label>
         </div>
 
-        <div className="mt-4">
-          <ProfileHouseholdFields lang={lang} value={form} onChange={set} existingCounts={existingCounts} />
+        {/* household reference (read-only) + head count (editable) */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">{t.householdRef}</span>
+            {/* Read-only value — styled as info, not a form control, but kept legible */}
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5">
+              <span className="truncate text-sm font-semibold text-slate-100">
+                {form.household_ref || "—"}
+              </span>
+              <Lock size={14} className="shrink-0 text-slate-500" />
+            </div>
+            <span className="mt-1 block text-[11px] text-slate-500">{t.householdLocked}</span>
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">
+              {t.noPerson} <span className="text-rose-400">*</span>
+            </span>
+            <input
+              type="number"
+              min="1"
+              value={form.no_person ?? ""}
+              onChange={(e) => set({ no_person: e.target.value })}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
+            />
+          </label>
         </div>
 
         <div className="mt-6 flex items-center gap-3">
