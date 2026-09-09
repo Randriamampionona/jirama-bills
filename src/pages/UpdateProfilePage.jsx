@@ -11,9 +11,10 @@ import LangSwitch from "../components/LangSwitch";
 import ProfileHouseholdFields from "../components/ProfileForm";
 
 /**
- * Onboarding. Completeness comes from AuthGate (Clerk session), so a complete
- * user is redirected before this renders. Saving writes to BOTH Clerk metadata
- * (for instant routing) and Firestore (source of truth for billing).
+ * Onboarding. Completeness comes from AuthGate (Clerk session). Saving writes to
+ * BOTH Clerk metadata (instant routing) and Firestore (billing source of truth).
+ * A household is capped at its no_person: once that many accounts are registered
+ * under a household_ref, no new member may join it.
  */
 export default function UpdateProfilePage() {
   const { lang, setLang } = useOutletContext();
@@ -26,19 +27,32 @@ export default function UpdateProfilePage() {
   const [form, setForm] = useState({ household_ref: "", no_person: "" });
   const [saving, setSaving] = useState(false);
 
-  // person counts of households OTHER users already belong to (self excluded)
-  const existingCounts = useMemo(() => {
-    const o = {};
+  // Per household_ref (self excluded): the shared no_person, and how many
+  // accounts are already registered under it.
+  const { existingCounts, memberCounts } = useMemo(() => {
+    const existingCounts = {};
+    const memberCounts = {};
     for (const u of users) {
       if (u.id === user?.id || !u.household_ref) continue;
-      o[u.household_ref] = Math.max(o[u.household_ref] || 0, Number(u.no_person) || 0);
+      existingCounts[u.household_ref] = Math.max(existingCounts[u.household_ref] || 0, Number(u.no_person) || 0);
+      memberCounts[u.household_ref] = (memberCounts[u.household_ref] || 0) + 1;
     }
-    return o;
+    return { existingCounts, memberCounts };
   }, [users, user?.id]);
 
   if (complete) return <Navigate to="/indexing" replace />;
 
-  const valid = form.household_ref && form.no_person !== "" && Number(form.no_person) > 0;
+  const ref = form.household_ref;
+  const cap = ref ? existingCounts[ref] : undefined;       // household's no_person
+  const registered = ref ? memberCounts[ref] || 0 : 0;     // accounts already in it
+  const capacityFull = cap != null && cap > 0 && registered >= cap;
+  const capacityError = capacityFull ? t.capacityFull.replace("{max}", String(cap)) : "";
+
+  const valid =
+    form.household_ref &&
+    form.no_person !== "" &&
+    Number(form.no_person) > 0 &&
+    !capacityFull;
 
   async function save() {
     if (!valid || !user) return;
@@ -91,6 +105,7 @@ export default function UpdateProfilePage() {
               value={form}
               onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
               existingCounts={existingCounts}
+              householdError={capacityError}
             />
             <button
               onClick={save}

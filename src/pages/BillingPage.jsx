@@ -51,10 +51,14 @@ export default function BillingPage() {
   // inline amount edit
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
-  const startEdit = () => { setDraft(amount != null ? String(amount) : ""); setEditing(true); };
+  const startEdit = () => {
+    setDraft(amount != null ? String(amount) : "");
+    setEditing(true);
+  };
   async function saveAmount() {
     const clean = draft.replace(/[^\d.]/g, "");
-    if (ym) await updateAmount("water", ym, clean === "" ? null : Number(clean));
+    if (ym)
+      await updateAmount("water", ym, clean === "" ? null : Number(clean));
     setEditing(false);
   }
 
@@ -69,13 +73,16 @@ export default function BillingPage() {
     });
 
   const households = useMemo(() => groupByHousehold(users), [users]);
-  const activeHouseholds = households.filter((h) => !excluded.has(h.household_ref));
+  const activeHouseholds = households.filter(
+    (h) => !excluded.has(h.household_ref),
+  );
   const totalPersons = activeHouseholds.reduce((s, h) => s + h.no_person, 0);
   const totalHouseholds = activeHouseholds.length;
 
   const shareFor = (h) => {
     if (excluded.has(h.household_ref) || amount == null) return null;
-    if (mode === "person") return totalPersons ? (h.no_person * amount) / totalPersons : 0;
+    if (mode === "person")
+      return totalPersons ? (h.no_person * amount) / totalPersons : 0;
     return totalHouseholds ? amount / totalHouseholds : 0;
   };
 
@@ -97,17 +104,23 @@ export default function BillingPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-50">{t.billingTitle}</h1>
-          <p className="mt-1 max-w-md text-sm text-slate-400">{t.billingDesc}</p>
+          <p className="mt-1 max-w-md text-sm text-slate-400">
+            {t.billingDesc}
+          </p>
         </div>
         <label className="block sm:w-48">
-          <span className="mb-1 block text-xs font-medium text-slate-500">{t.selectMonth}</span>
+          <span className="mb-1 block text-xs font-medium text-slate-500">
+            {t.selectMonth}
+          </span>
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
             className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
           >
             {monthOptions.map((m) => (
-              <option key={m} value={m}>{labelMonth(m, lang)}</option>
+              <option key={m} value={m}>
+                {labelMonth(m, lang)}
+              </option>
             ))}
           </select>
         </label>
@@ -126,7 +139,9 @@ export default function BillingPage() {
               onClick={() => setTab(b.key)}
               className={
                 "flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition " +
-                (active ? "bg-slate-100 text-slate-900 shadow" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200")
+                (active
+                  ? "bg-slate-100 text-slate-900 shadow"
+                  : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200")
               }
             >
               <TabIcon size={17} className={active ? "" : th.text} />
@@ -142,21 +157,40 @@ export default function BillingPage() {
             <Zap className="text-white" size={26} />
           </div>
           <h2 className="text-lg font-bold text-slate-50">{t.comingSoon}</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-400">{t.comingSoonDesc}</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-400">
+            {t.comingSoonDesc}
+          </p>
         </div>
       ) : (
         <>
           {/* amount card + inline edit */}
-          <div className={"relative overflow-hidden rounded-3xl border bg-slate-900/70 p-5 shadow-2xl sm:p-6 " + theme.border}>
-            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl" style={{ background: theme.glow }} />
+          <div
+            className={
+              "relative overflow-hidden rounded-3xl border bg-slate-900/70 p-5 shadow-2xl sm:p-6 " +
+              theme.border
+            }
+          >
+            <div
+              className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl"
+              style={{ background: theme.glow }}
+            />
             <div className="relative flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className={"flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg " + theme.grad}>
+                <div
+                  className={
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg " +
+                    theme.grad
+                  }
+                >
                   <Droplet className="text-white" size={24} />
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t.amountLabel}</p>
-                  <p className="text-sm text-slate-400">{labelMonth(month, lang)}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {t.amountLabel}
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    {labelMonth(month, lang)}
+                  </p>
                 </div>
               </div>
               {!editing && (
@@ -182,17 +216,29 @@ export default function BillingPage() {
                     className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-2xl font-bold text-slate-50 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 sm:max-w-xs"
                   />
                   <div className="flex gap-2">
-                    <button onClick={saveAmount} className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
+                    <button
+                      onClick={saveAmount}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
+                    >
                       <Check size={16} /> {t.save}
                     </button>
-                    <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800">
+                    <button
+                      onClick={() => setEditing(false)}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
+                    >
                       <X size={16} /> {t.cancel}
                     </button>
                   </div>
                 </div>
               ) : (
                 <p className="text-3xl font-bold tracking-tight text-slate-50">
-                  {amount == null ? <span className="text-lg font-medium text-slate-500">{t.noAmount}</span> : formatAr(amount, 0)}
+                  {amount == null ? (
+                    <span className="text-lg font-medium text-slate-500">
+                      {t.noAmount}
+                    </span>
+                  ) : (
+                    formatAr(amount, 0)
+                  )}
                 </p>
               )}
             </div>
@@ -200,17 +246,29 @@ export default function BillingPage() {
 
           {/* split mode toggle */}
           <div className="mt-6 flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-slate-300">{t.splitMode}</span>
+            <span className="text-sm font-semibold text-slate-300">
+              {t.splitMode}
+            </span>
             <div className="inline-flex rounded-xl border border-slate-700 bg-slate-900/60 p-1">
               <button
                 onClick={() => setMode("person")}
-                className={"flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition " + (mode === "person" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-200")}
+                className={
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition " +
+                  (mode === "person"
+                    ? "bg-slate-100 text-slate-900"
+                    : "text-slate-400 hover:text-slate-200")
+                }
               >
                 <Users size={14} /> {t.byPerson}
               </button>
               <button
                 onClick={() => setMode("household")}
-                className={"flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition " + (mode === "household" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-200")}
+                className={
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition " +
+                  (mode === "household"
+                    ? "bg-slate-100 text-slate-900"
+                    : "text-slate-400 hover:text-slate-200")
+                }
               >
                 <Home size={14} /> {t.byHousehold}
               </button>
@@ -225,7 +283,9 @@ export default function BillingPage() {
             </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
               <p className="text-xs text-slate-500">{t.activeHouseholds}</p>
-              <p className="text-lg font-bold text-slate-100">{totalHouseholds}</p>
+              <p className="text-lg font-bold text-slate-100">
+                {totalHouseholds}
+              </p>
             </div>
           </div>
 
@@ -244,40 +304,72 @@ export default function BillingPage() {
                     key={h.household_ref}
                     className={
                       "flex items-start justify-between gap-3 px-4 py-3 " +
-                      (isMine ? "bg-cyan-500/5 ring-1 ring-inset ring-cyan-500/30" : "bg-slate-950/30")
+                      (isMine
+                        ? "bg-cyan-500/5 ring-1 ring-inset ring-cyan-500/30"
+                        : "bg-slate-950/30")
                     }
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={"text-sm font-semibold " + (isExcluded ? "text-slate-500 line-through" : "text-slate-100")}>
+                        <span
+                          className={
+                            "text-sm font-semibold " +
+                            (isExcluded
+                              ? "text-slate-500 line-through"
+                              : "text-slate-100")
+                          }
+                        >
                           {h.household_ref}
                         </span>
                         <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
                           {h.no_person} {t.persons}
                         </span>
                       </div>
-                      {/* member names, with (You) beside the logged-in user */}
-                      <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                        {h.members.map((m, i) => {
+                      {/* member names — stacked list, (You) beside the logged-in user */}
+                      <ul className="mt-2 space-y-1">
+                        {h.members.map((m) => {
                           const isMe = m.id === user?.id;
                           return (
-                            <span key={m.id} className="text-xs text-slate-400">
-                              {memberName(m)}
+                            <li key={m.id} className="flex items-center gap-2">
+                              <span
+                                className={
+                                  "h-1.5 w-1.5 shrink-0 rounded-full " +
+                                  (isMe ? "bg-cyan-400" : "bg-slate-600")
+                                }
+                              />
+                              <span
+                                className={
+                                  "text-xs " +
+                                  (isMe
+                                    ? "font-semibold text-cyan-200"
+                                    : "text-slate-300")
+                                }
+                              >
+                                {memberName(m)}
+                              </span>
                               {isMe && (
-                                <span className="ml-1 rounded-full bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
+                                <span className="rounded-full bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
                                   {t.you}
                                 </span>
                               )}
-                              {i < h.members.length - 1 && <span className="text-slate-600">,</span>}
-                            </span>
+                            </li>
                           );
                         })}
-                      </div>
+                      </ul>
                     </div>
 
                     <div className="flex shrink-0 items-center gap-3">
-                      <span className={"text-sm font-bold " + (isExcluded ? "text-slate-600" : "text-emerald-300")}>
-                        {isExcluded ? t.excluded : share == null ? "—" : formatAr(share, 2)}
+                      <span
+                        className={
+                          "text-sm font-bold " +
+                          (isExcluded ? "text-slate-600" : "text-emerald-300")
+                        }
+                      >
+                        {isExcluded
+                          ? t.excluded
+                          : share == null
+                            ? "—"
+                            : formatAr(share, 2)}
                       </span>
                       <button
                         onClick={() => toggleExclude(h.household_ref)}
